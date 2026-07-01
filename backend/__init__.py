@@ -1,3 +1,0 @@
-"""
-Enterprise AI Platform Backend
-"""

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.database import db
 # from backend.authentication.auth_api import router as auth_router
 # from backend.users.users_api import router as users_router
-# from backend.chat.chat_api import router as chat_router
+from backend.chat.chat_api import router as chat_router
 from backend.rag.knowledge_api import router as knowledge_router
 from backend.rag.retriever import router as retriever_router
 from backend.admin.document_admin import router as doc_admin_router
@@ -31,12 +31,12 @@ app.add_middleware(
 
 # app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 # app.include_router(users_router, prefix="/users", tags=["User Management"])
-# app.include_router(chat_router, prefix="/chat", tags=["AI Chat"])
+app.include_router(chat_router, prefix="/chat", tags=["AI Chat"])
 app.include_router(knowledge_router, prefix="/documents", tags=["Knowledge Base"])
 app.include_router(retriever_router, prefix="/retrieve", tags=["Semantic Retriever"])
 app.include_router(doc_admin_router, prefix="/admin/documents", tags=["Knowledge Base Admin"])
 # app.include_router(workflow_router, prefix="/workflows", tags=["Workflows"])
-app.include_router(document_router)
+
 
 @app.get("/")
 def read_root():

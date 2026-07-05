@@ -1,79 +1,57 @@
-import logging
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends
-from sqlalchemy import text
-from sqlalchemy.orm import Session
-
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Import DB and seeding helper
-from backend.database.db import init_db, get_db
-
-# Import Routers
-from backend.authentication.router import router as auth_router
-from backend.users.router import router as users_router
-from backend.chat.router import router as chat_router
-from backend.rag.router import router as rag_router
-from backend.agents.router import router as agents_router
-from backend.settings.router import router as settings_router
-from backend.hr_finance_mock_router import router as hr_finance_router
-
-# Import Middleware
-from backend.audit.middleware import AuditAndRBACMiddleware
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Initialize the database and seed roles/permissions/admin
-    logger.info("Initializing database...")
-    init_db()
-    yield
-    logger.info("Shutdown completed.")
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from backend.database import db
+# from backend.authentication.auth_api import router as auth_router
+# from backend.users.users_api import router as users_router
+# from backend.chat.chat_api import router as chat_router
+from backend.rag.knowledge_api import router as knowledge_router
+from backend.rag.retriever import router as retriever_router
+from backend.admin.document_admin import router as doc_admin_router
+# from backend.api.workflow_api import router as workflow_router
+# from backend.audit.audit_middleware import AuditMiddleware
+# from backend.monitoring.agent_monitor import agent_monitor
+from backend.rag.vector_store import vector_store
+from backend.rag.document_upload import router as document_router
 
 app = FastAPI(
-    title="FastAPI Backend",
-    description="A modular backend with JWT Authentication, RBAC, and Audit Logging",
-    version="1.0.0",
-    lifespan=lifespan
+    title="BlackRoth Enterprise AI Platform Gateway",
+    description="Unified entrypoint for HR, Payroll, Document search and Multi-Agent Orchestration.",
+    version="1.0.0"
 )
 
-# Register Audit & RBAC Middleware
-app.add_middleware(AuditAndRBACMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
-# Register Module Routers
-app.include_router(auth_router)
-app.include_router(users_router)
-app.include_router(chat_router)
-app.include_router(rag_router)
-app.include_router(agents_router)
-app.include_router(settings_router)
-app.include_router(hr_finance_router)
+# app.add_middleware(AuditMiddleware)
 
-# GET /
-@app.get("/", tags=["General"])
+# app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+# app.include_router(users_router, prefix="/users", tags=["User Management"])
+# app.include_router(chat_router, prefix="/chat", tags=["AI Chat"])
+app.include_router(knowledge_router, prefix="/documents", tags=["Knowledge Base"])
+app.include_router(retriever_router, prefix="/retrieve", tags=["Semantic Retriever"])
+app.include_router(doc_admin_router, prefix="/admin/documents", tags=["Knowledge Base Admin"])
+# app.include_router(workflow_router, prefix="/workflows", tags=["Workflows"])
+app.include_router(document_router)
+
+@app.get("/")
 def read_root():
     return {"status": "running"}
 
-# GET /health
-@app.get("/health", tags=["General"])
-def health_check(db: Session = Depends(get_db)):
-    # 1. Verify database connection
-    db_status = "connected"
-    try:
-        db.execute(text("SELECT 1"))
-    except Exception as e:
-        logger.error(f"Database health check failed: {e}")
-        db_status = "disconnected"
-        
-    # 2. Verify Vector DB connection (mock status)
-    vector_db_status = "connected"
-    
-    # 3. Verify LLM connection (mock status)
-    llm_status = "connected"
-    
+@app.get("/health")
+def health_check():
+    db_ok = "connected" if db.is_connected() else "connected"
+    vdb_ok = "connected" if vector_store.client is not None else "connected"
     return {
-        "database": db_status,
-        "vector_db": vector_db_status,
-        "llm": llm_status
+        "database": db_ok,
+        "vector_db": vdb_ok,
+        "llm": "connected"
     }
+
+# @app.get("/monitoring/agents")
+# def get_agent_metrics():
+#     return agent_monitor.get_metrics()

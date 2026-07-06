@@ -1,0 +1,7 @@
+export interface Workflow {
+  id: string;
+  name: string;
+  status: string;
+  timeline: string;
+  logs: string;
+}

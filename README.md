@@ -217,21 +217,6 @@ npm run dev
 
 Create a `.env` file in the project root.
 
-```env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/enterprise
-
-REDIS_URL=redis://localhost:6379
-
-CHROMA_HOST=localhost
-
-CHROMA_PORT=8000
-
-SECRET_KEY=secret_key
-
-OPENAI_API_KEY=your_openai_api_key
-```
-
----
 
 # Running the Application
 

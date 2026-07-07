@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: fastapi-service
+  namespace: enterprise-app
+
+spec:
+
+  selector:
+    app: fastapi
+
+  ports:
+
+  - port: 80
+    targetPort: 8000
+
+  type: ClusterIP

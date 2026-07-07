@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: allow-backend
+  namespace: enterprise-app
+
+spec:
+
+  podSelector:
+
+    matchLabels:
+      app: fastapi
+
+  policyTypes:
+
+  - Ingress
+
+  - Egress
+
+  ingress:
+
+  - from:
+
+    - podSelector: {}
+
+  egress:
+
+  - to:
+
+    - podSelector: {}

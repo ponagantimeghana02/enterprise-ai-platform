@@ -12,6 +12,11 @@ from backend.admin.document_admin import router as doc_admin_router
 # from backend.monitoring.agent_monitor import agent_monitor
 from backend.rag.vector_store import vector_store
 from backend.rag.document_upload import router as document_router
+from monitoring.tracing import tracing_middleware
+
+from monitoring.metrics import router as metrics_router
+from monitoring.metrics import metrics_middleware
+
 
 app = FastAPI(
     title="BlackRoth Enterprise AI Platform Gateway",
@@ -26,6 +31,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+app.middleware("http")(tracing_middleware)
+app.middleware("http")(metrics_middleware)
+
 
 # app.add_middleware(AuditMiddleware)
 
@@ -36,6 +44,7 @@ app.include_router(knowledge_router, prefix="/documents", tags=["Knowledge Base"
 app.include_router(retriever_router, prefix="/retrieve", tags=["Semantic Retriever"])
 app.include_router(doc_admin_router, prefix="/admin/documents", tags=["Knowledge Base Admin"])
 # app.include_router(workflow_router, prefix="/workflows", tags=["Workflows"])
+app.include_router(metrics_router)
 
 
 @app.get("/")

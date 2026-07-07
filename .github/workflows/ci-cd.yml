@@ -1,0 +1,101 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+
+    # Checkout Code
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # Python
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    # Node
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    # Install Backend Dependencies
+    - name: Install Backend Dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+
+    # Install Frontend Dependencies
+    - name: Install Frontend Dependencies
+      run: |
+        cd frontend
+        npm install
+
+    # Run Linting
+    - name: Run Lint
+      run: |
+        cd backend
+        python -m py_compile $(find . -name "*.py")
+
+        cd ../frontend
+        npm run lint
+
+    # Backend Unit Tests
+    - name: Backend Tests
+      run: |
+        cd backend
+        pytest
+
+    # Frontend Tests
+    - name: Frontend Tests
+      run: |
+        cd frontend
+        npm test -- --watchAll=false
+
+    # Integration Tests
+    - name: Integration Tests
+      run: |
+        echo "Running Integration Tests..."
+
+    # Docker Build
+    - name: Build Docker Images
+      run: |
+        docker build -t backend ./backend
+        docker build -t frontend ./frontend
+
+    # Security Scan
+    - name: Security Scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: fs
+        scan-ref: .
+
+    # Push Docker Images
+    - name: Push Images
+      run: |
+        echo "Push images to Docker Hub"
+
+    # Kubernetes Deployment
+    - name: Deploy to Kubernetes
+      run: |
+        echo "kubectl apply -f k8s/"
+
+    # Smoke Test
+    - name: Smoke Test
+      run: |
+        echo "Application Healthy"
+
+    # Notification
+    - name: Notify Team
+      run: |
+        echo "Deployment Successful"

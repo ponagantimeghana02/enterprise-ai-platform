@@ -179,13 +179,9 @@ enterprise-ai-platform/
 
 ## Clone the Repository
 
-```bash
-git clone https://github.com/your-username/enterprise-ai-platform.git
 
 cd enterprise-ai-platform
-```
 
----
 
 ## Backend Setup
 

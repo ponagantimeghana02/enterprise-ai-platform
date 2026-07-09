@@ -1,98 +1,255 @@
 import datetime
 import bcrypt
 import jwt
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from backend.settings.config import settings
-from backend.database.db import get_db, User, Role, Permission
 
-# HTTP Bearer scheme (gives a simple text box in Swagger to paste the JWT token)
-security_scheme = HTTPBearer()
+from backend.database.db import get_db
+from backend.database.models import User
+from backend.settings.config import settings
+
+security = HTTPBearer()
 
 ALGORITHM = "HS256"
 
-# Password Hashing Functions
+
+# ============================================================
+# Password Hashing
+# ============================================================
+
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+    return bcrypt.hashpw(
+        password.encode("utf-8"),
+        salt
+    ).decode("utf-8")
+
 
 def verify_password(password: str, hashed_password: str) -> bool:
     try:
-        return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+        return bcrypt.checkpw(
+            password.encode("utf-8"),
+            hashed_password.encode("utf-8")
+        )
     except Exception:
         return False
 
-# Token Generation Functions
-def create_access_token(data: dict, expires_delta: datetime.timedelta = None) -> str:
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
 
-def create_refresh_token(data: dict, expires_delta: datetime.timedelta = None) -> str:
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.datetime.utcnow() + datetime.timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.JWT_REFRESH_SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+# ============================================================
+# Access Token
+# ============================================================
 
-# Token Decoding Functions
-def decode_access_token(token: str) -> dict:
-    try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Access token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid access token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+def create_access_token(
+    data: dict,
+    expires_delta: datetime.timedelta = None
+):
 
-def decode_refresh_token(token: str) -> dict:
-    try:
-        payload = jwt.decode(token, settings.JWT_REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token has expired",
-        )
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-        )
+    payload = data.copy()
 
-# FastAPI Dependency to get the current authenticated user
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security_scheme), db: Session = Depends(get_db)) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+    expire = (
+        datetime.datetime.utcnow()
+        + (
+            expires_delta
+            if expires_delta
+            else datetime.timedelta(
+                minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+            )
+        )
     )
-    
+
+    payload.update({"exp": expire})
+
+    return jwt.encode(
+        payload,
+        settings.JWT_SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+
+
+# ============================================================
+# Refresh Token
+# ============================================================
+
+def create_refresh_token(
+    data: dict,
+    expires_delta: datetime.timedelta = None
+):
+
+    payload = data.copy()
+
+    expire = (
+        datetime.datetime.utcnow()
+        + (
+            expires_delta
+            if expires_delta
+            else datetime.timedelta(
+                days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+            )
+        )
+    )
+
+    payload.update({"exp": expire})
+
+    return jwt.encode(
+        payload,
+        settings.JWT_REFRESH_SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+
+
+# ============================================================
+# Decode Tokens
+# ============================================================
+
+def decode_access_token(token: str):
+
+    try:
+
+        return jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
+    except jwt.ExpiredSignatureError:
+
+        raise HTTPException(
+            status_code=401,
+            detail="Access token expired"
+        )
+
+    except jwt.InvalidTokenError:
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid access token"
+        )
+
+
+def decode_refresh_token(token: str):
+
+    try:
+
+        return jwt.decode(
+            token,
+            settings.JWT_REFRESH_SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
+    except jwt.ExpiredSignatureError:
+
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token expired"
+        )
+
+    except jwt.InvalidTokenError:
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid refresh token"
+        )
+
+
+# ============================================================
+# Current User
+# ============================================================
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+
     token = credentials.credentials
+
     payload = decode_access_token(token)
-    email: str = payload.get("sub")
+
+    email = payload.get("sub")
+
     if email is None:
-        raise credentials_exception
-        
-    user = db.query(User).filter(User.email == email).first()
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token"
+        )
+
+    user = (
+        db.query(User)
+        .filter(User.email == email)
+        .first()
+    )
+
     if user is None:
-        raise credentials_exception
-        
+
+        raise HTTPException(
+            status_code=401,
+            detail="User not found"
+        )
+
+    if not user.is_active:
+
+        raise HTTPException(
+            status_code=403,
+            detail="Inactive user"
+        )
+
     return user
+
+
+# ============================================================
+# Role Checking
+# ============================================================
+
+def require_role(role_name: str):
+
+    def checker(
+        current_user: User = Depends(get_current_user)
+    ):
+
+        roles = [
+            role.name
+            for role in current_user.roles
+        ]
+
+        if role_name not in roles:
+
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied"
+            )
+
+        return current_user
+
+    return checker
+
+
+# ============================================================
+# Permission Checking
+# ============================================================
+
+def require_permission(permission_name: str):
+
+    def checker(
+        current_user: User = Depends(get_current_user)
+    ):
+
+        permissions = []
+
+        for role in current_user.roles:
+
+            for permission in role.permissions:
+
+                permissions.append(permission.name)
+
+        if permission_name not in permissions:
+
+            raise HTTPException(
+                status_code=403,
+                detail="Permission denied"
+            )
+
+        return current_user
+
+    return checker

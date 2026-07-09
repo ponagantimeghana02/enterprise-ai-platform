@@ -15,3 +15,4 @@ class CitationEngine:
                 f"- {file_name} | Section: {sec} | Page: {page} (Similarity: {score:.2f})"
             )
         return "\n".join(citation_lines)
+citation_engine = CitationEngine()

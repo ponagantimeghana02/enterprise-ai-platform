@@ -31,3 +31,4 @@ class ContextBuilder:
             "sources": sources,
             "token_count": current_token_estimate
         }
+context_builder = ContextBuilder()
